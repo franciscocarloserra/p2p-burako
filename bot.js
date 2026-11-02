@@ -1,5 +1,5 @@
 // Rule-based bot. botStep returns the next action for seat p using only what that seat can see.
-import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.6';
+import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.7';
 
 export const B = {
   pozoMinGain: 0,      // take the pozo if it lets us lay down at least this many more tiles
@@ -112,15 +112,15 @@ function rivalKnown(s, p) {
   const k = s.id + ':' + s.round + ':' + p, m = seen.get(k) ?? {left: null, known: []};
   seen.set(k, m);
   if (s.phase === 'draw' && m.left && s.mazo.length === m.mazo && s.pozo.length === 1) { m.known.push(...m.left); m.left = null; }
-  const shown = new Set([...s.melds[1 - team(p)].flatMap(x => x.t), ...s.pozo]);
+  const shown = new Set([...s.melds[1 - team(p, s)].flatMap(x => x.t), ...s.pozo]);
   m.known = m.known.filter(i => !shown.has(i));
   return m;
 }
 
 export function botStep(s, p) {
-  const hand = s.hands[p], mine = s.melds[team(p)], rival = s.melds[1 - team(p)];
+  const hand = s.hands[p], mine = s.melds[team(p, s)], rival = s.melds[s.ffa ? team((p + 1) % s.n, s) : 1 - team(p, s)]; // free for all: the next seat is who can take our discard
   // Keep one tile to discard unless the hand can empty into the muerto or a close
-  const canEmpty = (!s.muerto[team(p)] && s.muertos.length) || mine.some(isCanasta);
+  const canEmpty = (!s.muerto[team(p, s)] && s.muertos.length) || mine.some(isCanasta);
   const ok = ids => canEmpty || hand.length - ids.length >= 2;
   const err = Math.random() < B.mistake;
   if (s.phase === 'draw') {

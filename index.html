@@ -16,6 +16,7 @@
   #lobby.on{display:block}#lobby button{margin:8px 4px 0;padding:8px 14px;border:0;border-radius:10px;background:#2e7d55;color:#fff;font:600 14px system-ui}
   #upd{display:none;background:#e0a020;color:#000}
   main{flex:1;overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:8px}
+  .tag{flex-basis:100%;font-size:11px;opacity:.6}
   .who{font-size:12px;opacity:.75;display:flex;justify-content:space-between}
   .others{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
   .rack{text-align:center;font-size:11px;opacity:.85}.rack.turn{opacity:1;color:#ffd84a}
@@ -132,11 +133,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.6';
-import * as G from './game.js?v=2026-10-30.6';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.6';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.7';
+import * as G from './game.js?v=2026-10-30.7';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.7';
 
-const VERSION = '2026-10-30.6';
+const VERSION = '2026-10-30.7';
 
 // Tunable parameters
 const P = {
@@ -175,7 +176,7 @@ const ES = {
   'New hand': 'Nueva mano', 'View table': 'Ver mesa', 'Where does the wild go?': '¿Dónde va el comodín?', 'Who are you?': '¿Quién sos?', 'I\'m {0}': 'Soy {0}',
   'Your opponent isn\'t showing up': 'Tu rival no aparece', 'Keep waiting': 'Seguir esperando', 'your name': 'tu nombre', 'Play': 'Jugar',
   'Partner': 'Compa', 'Opponent 1': 'Rival 1', 'Opponent 2': 'Rival 2', 'link copied': 'link copiado',
-  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/4 seated, send the link': '{0}/4 sentados, mandá el link', 'easy': 'fácil', 'hard': 'difícil',
+  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/{1} seated, send the link': '{0}/{1} sentados, mandá el link', 'Free for all': 'Todos contra todos', '{0} vs bots': '{0} vs bots', '{0} online': '{0} online', 'players': 'jugadores', 'rivals': 'rivales', 'Back': 'Volver', 'easy': 'fácil', 'hard': 'difícil',
   '🐢 hurry up already': '🐢 dale que es para hoy', '😜 I\'m gonna beat you': '😜 te voy a ganar', '👉 poke': '👉 pinchar', '🤡 clown move': '🤡 jugada de payaso', '🔥 sick move': '🔥 tremenda',
   // game.js errors and log
   'keep a tile: you can\'t go out without a canasta': 'quedate con fichas: sin canasta no podés cerrar', 'you need a canasta to go out': 'necesitás una canasta para cerrar',
@@ -202,10 +203,13 @@ let aloneTimer = 0, aloneAsked = false;
 // Online: room and password live in the URL hash #room:password (password encrypts signaling; WebRTC itself is end-to-end).
 // Local practice: #solo (vs bot) or #2v2 (you + bot partner vs two bots).
 const rand = () => [...crypto.getRandomValues(new Uint8Array(P.randomBytes))].map(b => b.toString(16).padStart(2, '0')).join('');
-const MODE = location.hash === '#solo' ? 'solo' : location.hash === '#2v2' ? '2v2' : /^#[^:]+:.+/.test(location.hash) ? 'online' : 'menu';
+// Free for all vs bots: #ffa3 / #ffa4
+const MODE = location.hash === '#solo' ? 'solo' : location.hash === '#2v2' ? '2v2' : /^#ffa[34]$/.test(location.hash) ? location.hash.slice(1)
+  : /^#[^:]+:.+/.test(location.hash) ? 'online' : 'menu';
 const ONLINE = MODE === 'online';
-// Online 2 vs 2: the link ends in ':4'
-const SEATS = ONLINE && location.hash.endsWith(':4') ? 4 : 2;
+// Online seats: the link ends in ':4' (2 vs 2) or ':f3' / ':f4' (free for all); otherwise 2 players
+const OM = ONLINE ? location.hash.match(/:(f?)([34])$/) : null;
+const SEATS = OM ? +OM[2] : 2, FFA = MODE.startsWith('ffa') || OM?.[1] === 'f';
 addEventListener('hashchange', () => location.reload());
 const [room, ...pw] = decodeURIComponent(location.hash.slice(1)).split(':');
 const KEY = 'burako:' + (ONLINE ? room : MODE);
@@ -313,7 +317,7 @@ function status() {
   $('dot').className = peers ? 'on' : '';
   let msg;
   if (!ONLINE) $('dot').className = 'on';
-  if (!s || s.phase === 'waiting') msg = s?.n === 4 && s.players.length > 1 ? t('{0}/4 seated, send the link', s.players.length) : peers ? t('taking a seat...') : t('send the link to your opponent');
+  if (!s || s.phase === 'waiting') msg = s?.n > 2 && s.players.length > 1 ? t('{0}/{1} seated, send the link', s.players.length, s.n) : peers ? t('taking a seat...') : t('send the link to your opponent');
   else if (s.phase === 'over') msg = t('hand over') + ' · ' + log();
   else if (isMyTurn()) msg = t(s.phase === 'draw' ? 'your turn: draw from the deck or the pile' : 'lay down melds and discard one');
   else msg = t('{0}\'s turn', s.players[s.turn]?.name ?? '?') + (peers || !ONLINE ? '' : t(' (offline)'));
@@ -331,20 +335,24 @@ function render() {
   status();
   const p = seat();
   if (!s || p < 0) return;
-  const mt = G.team(p), o = 1 - mt, n = s.n ?? 2, back = () => Object.assign(document.createElement('div'), {className: 'back'});
+  const mt = G.team(p, s), o = 1 - mt, n = s.n ?? 2, back = () => Object.assign(document.createElement('div'), {className: 'back'});
   document.body.classList.toggle('n4', n === 4);
-  $('oppName').textContent = s.players.length > 1 ? teamName(o) + (s.muerto[o] ? t(' · with dead hand') : '') : t('waiting for opponent...');
+  const opps = [...Array(G.sides(s)).keys()].filter(T => T !== mt), dead = T => s.muerto[T] ? t(' · with dead hand') : '';
+  $('oppName').textContent = s.ffa ? t('rivals') : s.players.length > 1 ? teamName(o) + (s.muerto[o] ? t(' · with dead hand') : '') : t('waiting for opponent...');
   $('myName').textContent = teamName(mt) + (s.muerto[mt] ? t(' · with dead hand') : '');
-  $('oppScore').textContent = s.players.length > 1 ? t('{0} pts', s.scores[o]) : '';
+  $('oppScore').textContent = s.players.length > 1 && !s.ffa ? t('{0} pts', s.scores[o]) : '';
   $('myScore').textContent = t('{0} pts', s.scores[mt]);
   $('oppHand').replaceChildren(...[...Array(n).keys()].filter(q => q !== p && s.players[q]).map(q => {
     const w = Object.assign(document.createElement('div'), {className: 'rack' + (s.turn === q ? ' turn' : '')});
     const b = Object.assign(document.createElement('div'), {className: 'backs'});
     b.append(...(s.hands[q] ?? []).map(back));
-    w.append(s.players[q].name + (G.team(q) === mt ? t(' (partner)') : ''), b);
+    w.append(s.players[q].name + (G.team(q, s) === mt ? t(' (partner)') : ''), b);
     return w;
   }));
-  $('oppMelds').replaceChildren(...s.melds[o].map((m, i) => meldEl(m, i, false)));
+  // Free for all: one row per rival, headed by name and score
+  $('oppMelds').replaceChildren(...opps.flatMap(T => [
+    ...(s.ffa ? [Object.assign(document.createElement('span'), {className: 'tag', textContent: teamName(T) + ' · ' + t('{0} pts', s.scores[T]) + dead(T)})] : []),
+    ...s.melds[T].map((m, i) => meldEl(m, i, false))]));
   $('myMelds').replaceChildren(...s.melds[mt].map((m, i) => meldEl(m, i, true)));
   $('mazoN').textContent = t('deck {0}', s.mazo.length);
   $('pozo').replaceChildren(...s.pozo.slice(-5).map(id => tile(id)));
@@ -366,7 +374,7 @@ function render() {
   $('bSort').textContent = t(sortBy === 'color' ? 'By color' : sortBy === 'num' ? 'By number' : 'Sort');
   botLoop();
 }
-const teamName = T => s.players.filter((_, q) => G.team(q) === T).map(x => x.name).join(' + ');
+const teamName = T => s.players.filter((_, q) => G.team(q, s) === T).map(x => x.name).join(' + ');
 
 // Local modes: bots play their turns with a small delay so moves are visible
 let botT = null;
@@ -376,7 +384,7 @@ function botLoop() {
   botT = setTimeout(() => {
     botT = null;
     // Difficulty only weakens rival bots; a bot partner always plays its best
-    BOT.mistake = G.team(q) === G.team(seat()) ? 0 : LEVELS[localStorage.getItem('burako:level') || 'normal'];
+    BOT.mistake = G.team(q, s) === G.team(seat(), s) ? 0 : LEVELS[localStorage.getItem('burako:level') || 'normal'];
     if (G.act(s, q, botStep(s, q))) G.act(s, q, {type: 'discard', id: s.hands[q].at(-1)});
     commit();
     if (s.phase === 'over') showScore();
@@ -439,12 +447,12 @@ function cascade(done) {
 function showScore() { cascade(scoreModal); }
 function scoreModal() {
   const rows = {juegos: 'melds', canastas: 'canastas', cierre: 'going out', mano: 'in hand', muerto: 'dead hand', total: 'total'};
-  const L = s.last || [{}, {}];
-  $('mbody').innerHTML = '<b>' + t('Hand {0}', s.round) + '</b><table><tr><td></td><td></td><td></td></tr>'
+  const L = s.last || s.scores.map(() => ({}));
+  $('mbody').innerHTML = '<b>' + t('Hand {0}', s.round) + '</b><table><tr><td></td>' + L.map(() => '<td></td>').join('') + '</tr>'
     + Object.entries(rows).map(([k, l]) => '<tr><td>' + t(l) + '</td>' + L.map(x => '<td>' + (x[k] ?? '') + '</td>').join('') + '</tr>').join('')
     + '<tr><td>' + t('running total') + '</td>' + s.scores.map(x => '<td><b>' + x + '</b></td>').join('') + '</tr></table>';
   const tds = $('mbody').querySelectorAll('tr:first-child td');
-  [0, 1].forEach(T => tds[T + 1].textContent = teamName(T));
+  L.forEach((_, T) => tds[T + 1].textContent = teamName(T));
   const b = Object.assign(document.createElement('button'), {textContent: t('New hand')});
   b.onclick = () => { $('modal').className = ''; if (s.phase === 'over') play({type: 'next'}); };
   const c = Object.assign(document.createElement('button'), {textContent: t('View table')});
@@ -536,12 +544,12 @@ function askName() {
 
 function start() {
   if (!s && !ONLINE) {
-    const bots = MODE === 'solo' ? ['Bot'] : ['Opponent 1', 'Partner', 'Opponent 2'].map(x => t(x));
-    s = G.newState(rand(), {id: me, name: myName}, bots.length + 1);
+    const bots = MODE === 'solo' ? ['Bot'] : FFA ? ['Bot 1', 'Bot 2', 'Bot 3'].slice(0, +MODE.at(-1) - 1) : ['Opponent 1', 'Partner', 'Opponent 2'].map(x => t(x));
+    s = G.newState(rand(), {id: me, name: myName}, bots.length + 1, FFA);
     bots.forEach((b, i) => s.players.push({id: 'bot' + i, name: b, bot: true}));
     G.deal(s); save();
   }
-  if (!s) { s = G.newState(rand(), {id: me, name: myName}, SEATS); save(); stAct.send(JSON.stringify(s)); }
+  if (!s) { s = G.newState(rand(), {id: me, name: myName}, SEATS, FFA); save(); stAct.send(JSON.stringify(s)); }
   claim(); render(); renderChat();
   if (s.phase === 'over') scoreModal();
 }
@@ -627,11 +635,18 @@ function levelRow() {
   return row;
 }
 
+function ffaMenu() {
+  const k = rand() + ':' + rand();
+  const opts = [['{0} vs bots', 3, 'ffa3'], ['{0} vs bots', 4, 'ffa4'], ['{0} online', 3, k + ':f3'], ['{0} online', 4, k + ':f4'], ['Back']];
+  $('mbody').replaceChildren(Object.assign(document.createElement('b'), {textContent: t('Free for all')}), ...opts.map(([l, n, h]) =>
+    Object.assign(document.createElement('button'), {textContent: t(l, n && n + ' ' + t('players')), onclick: () => h ? location.hash = h : menu()})));
+}
+
 function menu() {
-  const opts = [['Online with link', rand() + ':' + rand()], ['Practice vs bot', 'solo'], ['2 vs 2 with bots', '2v2'], ['2 vs 2 online', rand() + ':' + rand() + ':4']];
+  const opts = [['Online with link', rand() + ':' + rand()], ['Practice vs bot', 'solo'], ['2 vs 2 with bots', '2v2'], ['2 vs 2 online', rand() + ':' + rand() + ':4'], ['Free for all', 'ffa']];
   $('mbody').replaceChildren(logo(), ...opts.map(([l, h]) => {
     const b = Object.assign(document.createElement('button'), {textContent: t(l)});
-    b.onclick = () => location.hash = h;
+    b.onclick = () => h === 'ffa' ? ffaMenu() : location.hash = h;
     return b;
   }), levelRow(), Object.assign(document.createElement('a'), {href: P.repoUrl, target: '_blank', rel: 'noopener', textContent: 'github',
     style: 'font-size:11px;color:#fff6;text-align:center;text-decoration:none'}));

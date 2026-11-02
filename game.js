@@ -66,20 +66,24 @@ function asSeq(ids, low) {
 }
 
 export const isCanasta = m => m.t.length >= R.canastaLen;
-export const team = p => p % 2; // 2 players: seats 0,1; 2 vs 2: seats 0,2 vs 1,3
+// Side of seat p. 2 players: seats 0,1; 2 vs 2: seats 0,2 vs 1,3; free for all (s.ffa): each seat is its own side
+export const team = (p, s) => s?.ffa ? p : p % 2;
 const seats = s => s.n ?? 2;
-const hasCanasta = (s, p) => s.melds[team(p)].some(isCanasta);
+export const sides = s => s.ffa ? seats(s) : 2;
+const hasCanasta = (s, p) => s.melds[team(p, s)].some(isCanasta);
 
-export function newState(id, player, n = 2) {
-  return {schema: 1, id, v: 1, n, players: [player], phase: 'waiting', turn: 0, round: 0,
-    mazo: [], pozo: [], muertos: [], hands: [[], []], melds: [[], []], muerto: [false, false],
-    snap: null, scores: [0, 0], last: null, log: ''};
+export function newState(id, player, n = 2, ffa = false) {
+  const k = ffa ? n : 2;
+  return {schema: 1, id, v: 1, n, ffa, players: [player], phase: 'waiting', turn: 0, round: 0,
+    mazo: [], pozo: [], muertos: [], hands: [[], []], melds: Array.from({length: k}, () => []), muerto: Array(k).fill(false),
+    snap: null, scores: Array(k).fill(0), last: null, log: ''};
 }
 
 // Upgrade states saved by older deploys. Only add fields with defaults here; never rename or drop fields.
 export function migrate(s) {
   if (!s || typeof s !== 'object') return s;
   s.n ??= 2;
+  s.ffa ??= false;
   s.ev ??= null;
   return s;
 }
@@ -90,8 +94,8 @@ export function deal(s) {
   s.muertos = [deck.splice(0, R.handSize), deck.splice(0, R.handSize)];
   s.pozo = [deck.pop()];
   s.mazo = deck;
-  s.melds = [[], []];
-  s.muerto = [false, false];
+  s.melds = Array.from({length: sides(s)}, () => []);
+  s.muerto = Array(sides(s)).fill(false);
   s.turn = s.round % seats(s);
   s.round++;
   s.phase = 'draw';
@@ -103,7 +107,7 @@ export function deal(s) {
 const name = (s, p) => s.players[p]?.name ?? '?';
 // log: English text for older clients; ev: [template, ...args] so each client shows it in its own language
 const say = (s, k, ...a) => { s.ev = [k, ...a]; s.log = a.reduce((t, x, i) => t.replace('{' + i + '}', x), k); };
-const takeSnap = (s, p) => { s.snap = JSON.stringify({h: s.hands[p], m: s.melds[team(p)], k: s.muerto, d: s.muertos}); };
+const takeSnap = (s, p) => { s.snap = JSON.stringify({h: s.hands[p], m: s.melds[team(p, s)], k: s.muerto, d: s.muertos}); };
 
 function removeFromHand(s, p, ids) {
   const h = s.hands[p];
@@ -114,16 +118,16 @@ function removeFromHand(s, p, ids) {
 
 function takeMuerto(s, p) {
   s.hands[p] = s.muertos.pop();
-  s.muerto[team(p)] = true;
+  s.muerto[team(p, s)] = true;
   say(s, '{0} took the dead hand', name(s, p));
 }
 
 // After melding: an empty hand takes the muerto or closes the round.
 function afterMeld(s, p) {
-  const stuck = s.muerto[team(p)] || !s.muertos.length;
+  const stuck = s.muerto[team(p, s)] || !s.muertos.length;
   if (s.hands[p].length === 1 && stuck && !hasCanasta(s, p)) return 'keep a tile: you can\'t go out without a canasta';
   if (s.hands[p].length) return;
-  if (!s.muerto[team(p)] && s.muertos.length) return takeMuerto(s, p);
+  if (!s.muerto[team(p, s)] && s.muertos.length) return takeMuerto(s, p);
   if (!hasCanasta(s, p)) return 'you need a canasta to go out';
   endRound(s, p);
 }
@@ -167,18 +171,18 @@ function run(s, p, a) {
       const m = validate(a.ids, a.low);
       if (!m) return 'not a valid meld';
       if (!removeFromHand(s, p, a.ids)) return 'invalid tiles';
-      s.melds[team(p)].push(m);
+      s.melds[team(p, s)].push(m);
       say(s, '{0} laid down a meld', name(s, p));
       return afterMeld(s, p);
     }
     case 'add': {
       if (s.phase !== 'play') return 'draw first';
-      const old = s.melds[team(p)][a.meld];
+      const old = s.melds[team(p, s)][a.meld];
       if (!old) return 'invalid meld';
       const m = validate([...old.t, ...a.ids], a.low ?? old.low);
       if (!m) return 'doesn\'t fit that meld';
       if (!removeFromHand(s, p, a.ids)) return 'invalid tiles';
-      s.melds[team(p)][a.meld] = m;
+      s.melds[team(p, s)][a.meld] = m;
       say(s, '{0} added to a meld', name(s, p));
       return afterMeld(s, p);
     }
@@ -188,7 +192,7 @@ function run(s, p, a) {
       s.pozo.push(a.id);
       say(s, '{0} discarded', name(s, p));
       if (!s.hands[p].length) {
-        if (!s.muerto[team(p)] && s.muertos.length) takeMuerto(s, p);
+        if (!s.muerto[team(p, s)] && s.muertos.length) takeMuerto(s, p);
         else if (hasCanasta(s, p)) return endRound(s, p);
         else return 'you need a canasta to go out';
       }
@@ -200,7 +204,7 @@ function run(s, p, a) {
     case 'undo': {
       if (s.phase !== 'play' || !s.snap) return 'nothing to undo';
       const o = JSON.parse(s.snap);
-      s.hands[p] = o.h; s.melds[team(p)] = o.m; s.muerto = o.k; s.muertos = o.d;
+      s.hands[p] = o.h; s.melds[team(p, s)] = o.m; s.muerto = o.k; s.muertos = o.d;
       say(s, '{0} undid', name(s, p));
       return;
     }
@@ -208,14 +212,15 @@ function run(s, p, a) {
   return 'unknown action';
 }
 
-// Scores are per team (index 0/1); closer is a seat.
+// Scores are per side; closer is a seat.
 export function endRound(s, closer) {
-  s.last = [0, 1].map(p => {
+  s.last = [...Array(sides(s)).keys()].map(p => {
     const juegos = s.melds[p].reduce((a, m) => a + m.t.reduce((b, i) => b + value(i), 0), 0);
     const canastas = s.melds[p].filter(isCanasta).reduce((a, m) => a + (m.w ? R.canastaSucia : R.canastaLimpia), 0);
-    const cierre = closer != null && team(closer) === p ? R.closeBonus : 0;
-    const mano = -s.hands.filter((_, q) => team(q) === p).flat().reduce((a, i) => a + value(i), 0);
-    const muerto = s.muerto[p] ? 0 : -R.muertoPenalty;
+    const cierre = closer != null && team(closer, s) === p ? R.closeBonus : 0;
+    const mano = -s.hands.filter((_, q) => team(q, s) === p).flat().reduce((a, i) => a + value(i), 0);
+    // Free for all shares the two dead hands, so not getting one isn't penalized
+    const muerto = s.muerto[p] || s.ffa ? 0 : -R.muertoPenalty;
     const total = juegos + canastas + cierre + mano + muerto;
     s.scores[p] += total;
     return {juegos, canastas, cierre, mano, muerto, total};
