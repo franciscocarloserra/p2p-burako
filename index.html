@@ -132,11 +132,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.5';
-import * as G from './game.js?v=2026-10-30.5';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.5';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.6';
+import * as G from './game.js?v=2026-10-30.6';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.6';
 
-const VERSION = '2026-10-30.5';
+const VERSION = '2026-10-30.6';
 
 // Tunable parameters
 const P = {
@@ -175,7 +175,7 @@ const ES = {
   'New hand': 'Nueva mano', 'View table': 'Ver mesa', 'Where does the wild go?': '¿Dónde va el comodín?', 'Who are you?': '¿Quién sos?', 'I\'m {0}': 'Soy {0}',
   'Your opponent isn\'t showing up': 'Tu rival no aparece', 'Keep waiting': 'Seguir esperando', 'your name': 'tu nombre', 'Play': 'Jugar',
   'Partner': 'Compa', 'Opponent 1': 'Rival 1', 'Opponent 2': 'Rival 2', 'link copied': 'link copiado',
-  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', 'easy': 'fácil', 'hard': 'difícil',
+  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/4 seated, send the link': '{0}/4 sentados, mandá el link', 'easy': 'fácil', 'hard': 'difícil',
   '🐢 hurry up already': '🐢 dale que es para hoy', '😜 I\'m gonna beat you': '😜 te voy a ganar', '👉 poke': '👉 pinchar', '🤡 clown move': '🤡 jugada de payaso', '🔥 sick move': '🔥 tremenda',
   // game.js errors and log
   'keep a tile: you can\'t go out without a canasta': 'quedate con fichas: sin canasta no podés cerrar', 'you need a canasta to go out': 'necesitás una canasta para cerrar',
@@ -204,6 +204,8 @@ let aloneTimer = 0, aloneAsked = false;
 const rand = () => [...crypto.getRandomValues(new Uint8Array(P.randomBytes))].map(b => b.toString(16).padStart(2, '0')).join('');
 const MODE = location.hash === '#solo' ? 'solo' : location.hash === '#2v2' ? '2v2' : /^#[^:]+:.+/.test(location.hash) ? 'online' : 'menu';
 const ONLINE = MODE === 'online';
+// Online 2 vs 2: the link ends in ':4'
+const SEATS = ONLINE && location.hash.endsWith(':4') ? 4 : 2;
 addEventListener('hashchange', () => location.reload());
 const [room, ...pw] = decodeURIComponent(location.hash.slice(1)).split(':');
 const KEY = 'burako:' + (ONLINE ? room : MODE);
@@ -233,11 +235,11 @@ function parse(raw) {
   try { const o = JSON.parse(raw); return o && typeof o === 'object' && !Array.isArray(o) ? o : null; } catch { return null; }
 }
 
-// Sit down if there is a free seat; the second player to sit deals
+// Sit down if there is a free seat; the last player to sit deals (2 vs 2: 1st and 3rd are partners)
 function claim() {
-  if (!ONLINE || !myName || !s || seat() >= 0 || s.players.length >= 2) return;
+  if (!ONLINE || !myName || !s || seat() >= 0 || s.players.length >= s.n) return;
   s.players.push({id: me, name: myName});
-  if (s.players.length === 2 && s.phase === 'waiting') G.deal(s);
+  if (s.players.length === s.n && s.phase === 'waiting') G.deal(s);
   commit();
 }
 
@@ -248,7 +250,7 @@ stAct.onMessage = raw => {
   s = G.migrate(o); save(); claim(); render();
   if (!myTurnBefore && isMyTurn()) blip(660);
   if (!wasOver && s.phase === 'over') showScore();
-  if (seat() < 0 && s.players.length >= 2 && !$('modal').className) askSeat();
+  if (seat() < 0 && s.players.length >= s.n && !$('modal').className) askSeat();
 };
 chatAct.onMessage = raw => {
   const o = parse(raw);
@@ -311,7 +313,7 @@ function status() {
   $('dot').className = peers ? 'on' : '';
   let msg;
   if (!ONLINE) $('dot').className = 'on';
-  if (!s || s.phase === 'waiting') msg = peers ? t('taking a seat...') : t('send the link to your opponent');
+  if (!s || s.phase === 'waiting') msg = s?.n === 4 && s.players.length > 1 ? t('{0}/4 seated, send the link', s.players.length) : peers ? t('taking a seat...') : t('send the link to your opponent');
   else if (s.phase === 'over') msg = t('hand over') + ' · ' + log();
   else if (isMyTurn()) msg = t(s.phase === 'draw' ? 'your turn: draw from the deck or the pile' : 'lay down melds and discard one');
   else msg = t('{0}\'s turn', s.players[s.turn]?.name ?? '?') + (peers || !ONLINE ? '' : t(' (offline)'));
@@ -338,7 +340,7 @@ function render() {
   $('oppHand').replaceChildren(...[...Array(n).keys()].filter(q => q !== p && s.players[q]).map(q => {
     const w = Object.assign(document.createElement('div'), {className: 'rack' + (s.turn === q ? ' turn' : '')});
     const b = Object.assign(document.createElement('div'), {className: 'backs'});
-    b.append(...s.hands[q].map(back));
+    b.append(...(s.hands[q] ?? []).map(back));
     w.append(s.players[q].name + (G.team(q) === mt ? t(' (partner)') : ''), b);
     return w;
   }));
@@ -348,15 +350,15 @@ function render() {
   $('pozo').replaceChildren(...s.pozo.slice(-5).map(id => tile(id)));
   $('pozoN').textContent = t('pile {0}', s.pozo.length);
   $('muertos').replaceChildren(...s.muertos.map(() => Object.assign(document.createElement('div'), {className: 'back'})));
-  for (const id of sel) if (!s.hands[p].includes(id)) sel.delete(id);
-  $('hand').replaceChildren(...order(s.hands[p]).map(id => {
+  for (const id of sel) if (!(s.hands[p] ?? []).includes(id)) sel.delete(id);
+  $('hand').replaceChildren(...order(s.hands[p] ?? []).map(id => {
     const d = tile(id, (sel.has(id) ? ' sel' : '') + (seen.size && !seen.has(id) ? ' new' : ''));
     d.onclick = () => { if (Date.now() - dragged < 300) return; sel.has(id) ? sel.delete(id) : sel.add(id); render(); };
     d.onpointerdown = e => dragTile(e, id, d);
     d.dataset.id = id;
     return d;
   }));
-  seen = new Set(s.hands[p]);
+  seen = new Set(s.hands[p] ?? []);
   const play_ = isMyTurn() && s.phase === 'play';
   $('bMeld').disabled = !play_ || sel.size < 3;
   $('bDisc').disabled = !play_ || sel.size !== 1;
@@ -539,7 +541,7 @@ function start() {
     bots.forEach((b, i) => s.players.push({id: 'bot' + i, name: b, bot: true}));
     G.deal(s); save();
   }
-  if (!s) { s = G.newState(rand(), {id: me, name: myName}); save(); stAct.send(JSON.stringify(s)); }
+  if (!s) { s = G.newState(rand(), {id: me, name: myName}, SEATS); save(); stAct.send(JSON.stringify(s)); }
   claim(); render(); renderChat();
   if (s.phase === 'over') scoreModal();
 }
@@ -626,7 +628,7 @@ function levelRow() {
 }
 
 function menu() {
-  const opts = [['Online with link', rand() + ':' + rand()], ['Practice vs bot', 'solo'], ['2 vs 2 with bots', '2v2']];
+  const opts = [['Online with link', rand() + ':' + rand()], ['Practice vs bot', 'solo'], ['2 vs 2 with bots', '2v2'], ['2 vs 2 online', rand() + ':' + rand() + ':4']];
   $('mbody').replaceChildren(logo(), ...opts.map(([l, h]) => {
     const b = Object.assign(document.createElement('button'), {textContent: t(l)});
     b.onclick = () => location.hash = h;
@@ -638,5 +640,5 @@ function menu() {
 
 if (MODE === 'menu') menu();
 else if (!myName) askName();
-else { start(); if (ONLINE && seat() < 0 && s.players.length >= 2) askSeat(); }
+else { start(); if (ONLINE && seat() < 0 && s.players.length >= s.n) askSeat(); }
 </script></body></html>

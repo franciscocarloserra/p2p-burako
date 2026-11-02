@@ -1,5 +1,5 @@
 // Rule-based bot. botStep returns the next action for seat p using only what that seat can see.
-import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.5';
+import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.6';
 
 export const B = {
   pozoMinGain: 0,      // take the pozo if it lets us lay down at least this many more tiles
