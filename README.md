@@ -6,7 +6,7 @@
 
 Two-player (or 2 vs 2 with bots) tile Burako, browser to browser (WebRTC via Trystero/Nostr, no server). The UI is in English, or Spanish if the browser language is Spanish.
 
-Live: https://franciscocarloserra.github.io/burako/ — opening it creates a `#room:key` link; send the whole link to the other player.
+Live: https://franciscocarloserra.github.io/p2p-burako/ — opening it creates a `#room:key` link; send the whole link to the other player.
 
 The game is saved on each device (localStorage) and re-syncs on reconnect, so you can reload or redeploy without losing the hand. To ship a new version, bump the version in `index.html` (`VERSION` and the `?v=` imports), `bot.js` and `version.txt`; see `AGENTS.md`. Open clients show "update".
 
