@@ -1,14 +1,19 @@
 // Rule-based bot. botStep returns the next action for seat p using only what that seat can see.
-import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.3';
+import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.4';
 
-const B = {
-  pozoMinGain: 1,      // take the pozo if it lets us lay down at least this many more tiles
+export const B = {
+  pozoMinGain: 0,      // take the pozo if it lets us lay down at least this many more tiles
   pozoWildGain: 1,     // each wild in the pozo counts as this many layable tiles
-  pozoDeny: 0.5,       // each pozo tile that fits the rival's melds counts this much toward taking it
+  pozoDeny: 1.5,       // each pozo tile that fits the rival's melds counts this much toward taking it
   wildNewMeldHand: 5,  // only start a meld with a wild when holding more than this many tiles
-  dumpWildsHand: 3,    // with this many tiles or fewer, wilds go anywhere (they cost points in hand)
-  feedRival: 6,        // discard cost per tile the pozo would let the rival lay down
+  dumpWildsHand: 8,    // with this many tiles or fewer, wilds go anywhere (they cost points in hand)
+  feedRival: 2,        // discard cost per tile the pozo would let the rival lay down
   canastaThreat: 10,   // extra discard cost when the tile grows a rival meld to canasta length
+  pozoConn: 1,         // each point of fit between pozo tiles and our hand counts this much toward taking it
+  pairFit: 4,          // fit of a tile with another of the same number
+  discardValue: 1 / 30, // discard cost per point the tile is worth (high tiles hurt more if caught in hand)
+  wildAddLen: 6, 
+  feedKnown: 6,        // discard cost per point of fit with tiles we saw the rival take from the pozo      // add a wild to a clean meld only when it has at least this many tiles
 };
 
 const nat = h => h.filter(i => !isWild(i));
@@ -53,7 +58,7 @@ function findAdd(hand, melds) {
   const dump = hand.length <= B.dumpWildsHand;
   for (const i of wilds(hand)) for (let k = 0; k < melds.length; k++) {
     const m = melds[k];
-    if (!m.w && !isCanasta(m) && (dump || m.t.length === R.canastaLen - 1) && validate([...m.t, i], m.low)) return {type: 'add', meld: k, ids: [i]};
+    if (!m.w && !isCanasta(m) && (dump || m.t.length >= B.wildAddLen) && validate([...m.t, i], m.low)) return {type: 'add', meld: k, ids: [i]};
   }
   return null;
 }
@@ -72,18 +77,41 @@ function layable(hand, melds) {
   return n;
 }
 
-function discardCost(i, hand, rivalMelds, pozo, fed) {
-  if (isWild(i)) return 1e6;
+// How well tile i fits the rest of the hand: near tiles of its color and tiles of its number.
+function conn(i, hand) {
+  if (isWild(i)) return 0;
   let c = 0;
   for (const u of hand) {
     if (u === i || isWild(u)) continue;
     const d = Math.abs(num(u) - num(i));
     if (color(u) === color(i) && d > 0 && d <= 2) c += 3 - d;
-    if (num(u) === num(i)) c += 1.5;
+    if (num(u) === num(i)) c += B.pairFit;
   }
+  return c;
+}
+
+function discardCost(i, hand, rivalMelds, pozo, fed) {
+  if (isWild(i)) return 1e6;
+  let c = conn(i, hand);
   c += B.feedRival * (layable([...pozo, i], rivalMelds) - fed);
   if (rivalMelds.some(m => m.t.length === R.canastaLen - 1 && validate([...m.t, i]))) c += B.canastaThreat;
-  return c - value(i) / 30;
+  return c - value(i) * B.discardValue;
+}
+
+function cheapest(hand, rival, pozo, fed, known = []) {
+  const cost = new Map(hand.map(i => [i, discardCost(i, hand, rival, pozo, fed) + B.feedKnown * conn(i, known)]));
+  return [...hand].sort((a, b) => cost.get(a) - cost.get(b))[0];
+}
+
+// Tiles the rival took from the pozo and hasn't shown since. Kept per hand in memory; a reload just forgets.
+const seen = new Map();
+function rivalKnown(s, p) {
+  const k = s.id + ':' + s.round + ':' + p, m = seen.get(k) ?? {left: null, known: []};
+  seen.set(k, m);
+  if (s.phase === 'draw' && m.left && s.mazo.length === m.mazo && s.pozo.length === 1) { m.known.push(...m.left); m.left = null; }
+  const shown = new Set([...s.melds[1 - team(p)].flatMap(x => x.t), ...s.pozo]);
+  m.known = m.known.filter(i => !shown.has(i));
+  return m;
 }
 
 export function botStep(s, p) {
@@ -92,17 +120,24 @@ export function botStep(s, p) {
   const canEmpty = (!s.muerto[team(p)] && s.muertos.length) || mine.some(isCanasta);
   const ok = ids => canEmpty || hand.length - ids.length >= 2;
   if (s.phase === 'draw') {
+    const known = s.n === 2 ? rivalKnown(s, p).known : [];
     const keep = canEmpty ? 0 : 2;
     const gain = s.pozo.length ? Math.min(layable([...hand, ...s.pozo], mine), hand.length + s.pozo.length - keep) - layable(hand, mine)
-      + (hand.length > B.dumpWildsHand ? B.pozoWildGain * s.pozo.filter(isWild).length : 0) + B.pozoDeny * layable(s.pozo, rival) : 0;
-    return {type: gain >= B.pozoMinGain ? 'pozo' : 'draw'};
+      + (hand.length > B.dumpWildsHand ? B.pozoWildGain * s.pozo.filter(isWild).length : 0) + B.pozoDeny * layable(s.pozo, rival) + B.pozoConn * s.pozo.reduce((a, i) => a + conn(i, hand), 0) : 0;
+    if (gain < B.pozoMinGain) return {type: 'draw'};
+    // A lone pozo tile we'd throw right back is a wasted turn (and two bots would pass it back and forth forever)
+    if (s.pozo.length === 1) {
+      const h = [...hand, s.pozo[0]], c = i => discardCost(i, h, rival, [], 0) + B.feedKnown * conn(i, known);
+      if (hand.every(i => c(i) >= c(s.pozo[0]))) return {type: 'draw'};
+    }
+    return {type: 'pozo'};
   }
   const add = findAdd(hand, mine);
   if (add && ok(add.ids)) return add;
   const m = findMeld(hand, hand.length > B.wildNewMeldHand);
   if (m && ok(m)) return {type: 'meld', ids: m};
-  const fed = layable(s.pozo, rival);
-  const cost = new Map(hand.map(i => [i, discardCost(i, hand, rival, s.pozo, fed)]));
-  const best = [...hand].sort((a, b) => cost.get(a) - cost.get(b))[0];
-  return {type: 'discard', id: best};
+  const mem = s.n === 2 ? rivalKnown(s, p) : {known: []};
+  const id = cheapest(hand, rival, s.pozo, layable(s.pozo, rival), mem.known);
+  if (s.n === 2) { mem.left = [...s.pozo, id]; mem.mazo = s.mazo.length; }
+  return {type: 'discard', id};
 }

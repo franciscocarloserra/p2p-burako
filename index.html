@@ -104,7 +104,7 @@
   .xl #toast{background:#fff;color:#222;border:1px solid #adadad;border-radius:0}
 </style></head><body>
 <div id="xlhead"><div>Book1 - Excel</div><div class="tabs"><span>File</span><span>Home</span><span>Insert</span><span>Formulas</span><span>Data</span><span>Review</span></div><div class="fx">fx&nbsp;&nbsp;=SUM(B2:B14)</div><div class="cols"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div></div>
-<div id="bar"><span id="dot"></span><span id="status">connecting...</span><button class="pill" id="upd">update</button><button class="pill" id="copy">link</button><button class="pill" id="home">home</button><button class="pill" id="xl">xl</button></div>
+<div id="bar"><span id="dot"></span><span id="status">connecting...</span><button class="pill" id="upd">update</button><button class="pill" id="copy">link</button><button class="pill" id="new">new</button><button class="pill" id="home">home</button><button class="pill" id="xl">xl</button></div>
 <div id="lobby"><span id="lobbyT"></span><br><button id="lCopy">Copy link</button><button id="lNew">New game</button></div>
 <main>
   <div class="others" id="oppHand"></div>
@@ -132,11 +132,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.3';
-import * as G from './game.js?v=2026-10-30.3';
-import {botStep} from './bot.js?v=2026-10-30.3';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.4';
+import * as G from './game.js?v=2026-10-30.4';
+import {botStep} from './bot.js?v=2026-10-30.4';
 
-const VERSION = '2026-10-30.3';
+const VERSION = '2026-10-30.4';
 
 // Tunable parameters
 const P = {
@@ -160,7 +160,7 @@ const P = {
 };
 // UI text is English; ES maps each English string to Spanish for Spanish browsers
 const ES = {
-  'connecting...': 'conectando...', 'update': 'actualizar', 'home': 'inicio', 'Copy link': 'Copiar link', 'New game': 'Partida nueva',
+  'connecting...': 'conectando...', 'update': 'actualizar', 'home': 'inicio', 'new': 'nueva', 'Abandon this game?': '¿Abandonar esta partida?', 'Copy link': 'Copiar link', 'New game': 'Partida nueva',
   'waiting for opponent...': 'esperando rival...', 'pile': 'pozo', 'dead hands': 'muertos', 'Undo': 'Deshacer', 'Meld': 'Bajar',
   'Discard': 'Descartar', 'Sort': 'Ordenar', 'tease...': 'molestar...', 'Book1 - Excel': 'Libro1 - Excel',
   'File': 'Archivo', 'Home': 'Inicio', 'Insert': 'Insertar', 'Formulas': 'Fórmulas', 'Data': 'Datos', 'Review': 'Revisar', 'fx\u00a0\u00a0=SUM(B2:B14)': 'fx\u00a0\u00a0=SUMA(B2:B14)',
@@ -596,6 +596,11 @@ setInterval(async () => {
 }, P.versionPollMs);
 $('upd').onclick = () => location.reload();
 $('home').onclick = () => location.hash = '';
+$('new').onclick = () => {
+  if (s && s.phase !== 'over' && s.phase !== 'waiting' && !confirm(t('Abandon this game?'))) return;
+  if (ONLINE) return location.hash = rand() + ':' + rand();
+  localStorage.removeItem(KEY + ':state'); localStorage.removeItem(KEY + ':order'); location.reload();
+};
 const stealth = on => {
   document.body.classList.toggle('xl', on);
   document.title = on ? t('Book1 - Excel') : 'burako';
