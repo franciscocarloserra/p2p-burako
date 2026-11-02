@@ -1,5 +1,5 @@
 // Rule-based bot. botStep returns the next action for seat p using only what that seat can see.
-import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.4';
+import {R, validate, isWild, color, num, value, team, isCanasta} from './game.js?v=2026-10-30.5';
 
 export const B = {
   pozoMinGain: 0,      // take the pozo if it lets us lay down at least this many more tiles
@@ -12,9 +12,12 @@ export const B = {
   pozoConn: 1,         // each point of fit between pozo tiles and our hand counts this much toward taking it
   pairFit: 4,          // fit of a tile with another of the same number
   discardValue: 1 / 30, // discard cost per point the tile is worth (high tiles hurt more if caught in hand)
-  wildAddLen: 6, 
-  feedKnown: 6,        // discard cost per point of fit with tiles we saw the rival take from the pozo      // add a wild to a clean meld only when it has at least this many tiles
+  wildAddLen: 6,       // add a wild to a clean meld only when it has at least this many tiles
+  feedKnown: 6,        // discard cost per point of fit with tiles we saw the rival take from the pozo
+  mistake: 0,          // chance per decision of ignoring the pozo or discarding at random (difficulty)
 };
+// Difficulty levels as mistake rates
+export const LEVELS = {easy: 0.5, normal: 0.2, hard: 0};
 
 const nat = h => h.filter(i => !isWild(i));
 // Jokers first: they cost more if caught in hand, and 2s may still serve as naturals in runs
@@ -119,7 +122,9 @@ export function botStep(s, p) {
   // Keep one tile to discard unless the hand can empty into the muerto or a close
   const canEmpty = (!s.muerto[team(p)] && s.muertos.length) || mine.some(isCanasta);
   const ok = ids => canEmpty || hand.length - ids.length >= 2;
+  const err = Math.random() < B.mistake;
   if (s.phase === 'draw') {
+    if (err) return {type: 'draw'};
     const known = s.n === 2 ? rivalKnown(s, p).known : [];
     const keep = canEmpty ? 0 : 2;
     const gain = s.pozo.length ? Math.min(layable([...hand, ...s.pozo], mine), hand.length + s.pozo.length - keep) - layable(hand, mine)
@@ -137,7 +142,7 @@ export function botStep(s, p) {
   const m = findMeld(hand, hand.length > B.wildNewMeldHand);
   if (m && ok(m)) return {type: 'meld', ids: m};
   const mem = s.n === 2 ? rivalKnown(s, p) : {known: []};
-  const id = cheapest(hand, rival, s.pozo, layable(s.pozo, rival), mem.known);
+  const id = err ? hand[Math.floor(Math.random() * hand.length)] : cheapest(hand, rival, s.pozo, layable(s.pozo, rival), mem.known);
   if (s.n === 2) { mem.left = [...s.pozo, id]; mem.mazo = s.mazo.length; }
   return {type: 'discard', id};
 }

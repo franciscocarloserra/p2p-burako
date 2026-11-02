@@ -132,11 +132,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.4';
-import * as G from './game.js?v=2026-10-30.4';
-import {botStep} from './bot.js?v=2026-10-30.4';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.5';
+import * as G from './game.js?v=2026-10-30.5';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.5';
 
-const VERSION = '2026-10-30.4';
+const VERSION = '2026-10-30.5';
 
 // Tunable parameters
 const P = {
@@ -175,7 +175,7 @@ const ES = {
   'New hand': 'Nueva mano', 'View table': 'Ver mesa', 'Where does the wild go?': '¿Dónde va el comodín?', 'Who are you?': '¿Quién sos?', 'I\'m {0}': 'Soy {0}',
   'Your opponent isn\'t showing up': 'Tu rival no aparece', 'Keep waiting': 'Seguir esperando', 'your name': 'tu nombre', 'Play': 'Jugar',
   'Partner': 'Compa', 'Opponent 1': 'Rival 1', 'Opponent 2': 'Rival 2', 'link copied': 'link copiado',
-  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots',
+  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', 'easy': 'fácil', 'hard': 'difícil',
   '🐢 hurry up already': '🐢 dale que es para hoy', '😜 I\'m gonna beat you': '😜 te voy a ganar', '👉 poke': '👉 pinchar', '🤡 clown move': '🤡 jugada de payaso', '🔥 sick move': '🔥 tremenda',
   // game.js errors and log
   'keep a tile: you can\'t go out without a canasta': 'quedate con fichas: sin canasta no podés cerrar', 'you need a canasta to go out': 'necesitás una canasta para cerrar',
@@ -373,6 +373,8 @@ function botLoop() {
   if (ONLINE || botT || !s.players[q]?.bot || (s.phase !== 'draw' && s.phase !== 'play')) return;
   botT = setTimeout(() => {
     botT = null;
+    // Difficulty only weakens rival bots; a bot partner always plays its best
+    BOT.mistake = G.team(q) === G.team(seat()) ? 0 : LEVELS[localStorage.getItem('burako:level') || 'normal'];
     if (G.act(s, q, botStep(s, q))) G.act(s, q, {type: 'discard', id: s.hands[q].at(-1)});
     commit();
     if (s.phase === 'over') showScore();
@@ -613,13 +615,23 @@ $('lCopy').onclick = () => $('copy').onclick();
 $('lNew').onclick = () => location.hash = rand() + ':' + rand();
 setInterval(status, 3000);
 
+// Bot difficulty for local modes, kept per device
+function levelRow() {
+  const row = Object.assign(document.createElement('div'), {style: 'display:flex;gap:6px'});
+  const cur = localStorage.getItem('burako:level') || 'normal';
+  row.append(...Object.keys(LEVELS).map(l => Object.assign(document.createElement('button'), {textContent: t(l),
+    style: 'flex:1;padding:7px;font-size:13px' + (l === cur ? '' : ';opacity:.4'),
+    onclick: () => { localStorage.setItem('burako:level', l); menu(); }})));
+  return row;
+}
+
 function menu() {
   const opts = [['Online with link', rand() + ':' + rand()], ['Practice vs bot', 'solo'], ['2 vs 2 with bots', '2v2']];
   $('mbody').replaceChildren(logo(), ...opts.map(([l, h]) => {
     const b = Object.assign(document.createElement('button'), {textContent: t(l)});
     b.onclick = () => location.hash = h;
     return b;
-  }), Object.assign(document.createElement('a'), {href: P.repoUrl, target: '_blank', rel: 'noopener', textContent: 'github',
+  }), levelRow(), Object.assign(document.createElement('a'), {href: P.repoUrl, target: '_blank', rel: 'noopener', textContent: 'github',
     style: 'font-size:11px;color:#fff6;text-align:center;text-decoration:none'}));
   $('modal').className = 'on';
 }
