@@ -1,4 +1,4 @@
-# p2p burako
+# p2p Burako - Play Burako online without a server
 
 <img src="logo.webp" width="160" alt="">
 
