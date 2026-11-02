@@ -133,11 +133,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.7';
-import * as G from './game.js?v=2026-10-30.7';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.7';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.8';
+import * as G from './game.js?v=2026-10-30.8';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.8';
 
-const VERSION = '2026-10-30.7';
+const VERSION = '2026-10-30.8';
 
 // Tunable parameters
 const P = {
@@ -384,7 +384,7 @@ function botLoop() {
   botT = setTimeout(() => {
     botT = null;
     // Difficulty only weakens rival bots; a bot partner always plays its best
-    BOT.mistake = G.team(q, s) === G.team(seat(), s) ? 0 : LEVELS[localStorage.getItem('burako:level') || 'normal'];
+    BOT.mistake = G.team(q, s) === G.team(seat(), s) ? 0 : LEVELS[localStorage.getItem('burako:level') || 'hard'];
     if (G.act(s, q, botStep(s, q))) G.act(s, q, {type: 'discard', id: s.hands[q].at(-1)});
     commit();
     if (s.phase === 'over') showScore();
@@ -628,7 +628,7 @@ setInterval(status, 3000);
 // Bot difficulty for local modes, kept per device
 function levelRow() {
   const row = Object.assign(document.createElement('div'), {style: 'display:flex;gap:6px'});
-  const cur = localStorage.getItem('burako:level') || 'normal';
+  const cur = localStorage.getItem('burako:level') || 'hard';
   row.append(...Object.keys(LEVELS).map(l => Object.assign(document.createElement('button'), {textContent: t(l),
     style: 'flex:1;padding:7px;font-size:13px' + (l === cur ? '' : ';opacity:.4'),
     onclick: () => { localStorage.setItem('burako:level', l); menu(); }})));
