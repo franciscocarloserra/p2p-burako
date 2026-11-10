@@ -133,16 +133,16 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-10-30.8';
-import * as G from './game.js?v=2026-10-30.8';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-10-30.8';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-10.1';
+import * as G from './game.js?v=2026-11-10.1';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-10.1';
 
-const VERSION = '2026-10-30.8';
+const VERSION = '2026-11-10.1';
 
 // Tunable parameters
 const P = {
   appId: 'burako-p2p-4d1e8b',
-  relayUrls: ['wss://nos.lol', 'wss://relay.primal.net', 'wss://nostr.mom'],
+  relayUrls: ['wss://relay.nostr.net', 'wss://offchain.pub', 'wss://nostr.oxtr.dev'],
   randomBytes: 16,
   maxPayloadBytes: 65536,
   maxChat: 100,
