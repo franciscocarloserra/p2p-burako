@@ -59,8 +59,8 @@
   #msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:5px}
   .m{max-width:80%;padding:6px 10px;border-radius:12px;background:#333;word-break:break-word;align-self:flex-start}
   .m.me{align-self:flex-end;background:#2e7d55}
-  #teases{display:flex;gap:6px;overflow-x:auto;padding:6px 10px}
-  #teases button{all:unset;cursor:pointer;flex-shrink:0;padding:6px 10px;border-radius:14px;background:#fff1;font-size:13px}
+  #teases{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:6px 10px}
+  #teases button{all:unset;cursor:pointer;flex-shrink:0;padding:4px 8px;border-radius:14px;background:#fff1;font-size:22px}
   #cf{display:flex;padding:8px;gap:6px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
   #cf input{flex:1;min-width:0;padding:11px;border-radius:10px;border:0;background:#000;color:#eee;font-size:16px}
   #cf button{border:0;border-radius:10px;padding:0 14px;background:#2e7d55;color:#fff;font-size:16px}
@@ -133,11 +133,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-10.1';
-import * as G from './game.js?v=2026-11-10.1';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-10.1';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-12.1';
+import * as G from './game.js?v=2026-11-12.1';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-12.1';
 
-const VERSION = '2026-11-10.1';
+const VERSION = '2026-11-12.1';
 
 // Tunable parameters
 const P = {
@@ -176,7 +176,7 @@ const ES = {
   'New hand': 'Nueva mano', 'View table': 'Ver mesa', 'Where does the wild go?': '¿Dónde va el comodín?', 'Who are you?': '¿Quién sos?', 'I\'m {0}': 'Soy {0}',
   'Your opponent isn\'t showing up': 'Tu rival no aparece', 'Keep waiting': 'Seguir esperando', 'your name': 'tu nombre', 'Play': 'Jugar',
   'Partner': 'Compa', 'Opponent 1': 'Rival 1', 'Opponent 2': 'Rival 2', 'link copied': 'link copiado',
-  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/{1} seated, send the link': '{0}/{1} sentados, mandá el link', 'Free for all': 'Todos contra todos', '{0} vs bots': '{0} vs bots', '{0} online': '{0} online', 'players': 'jugadores', 'rivals': 'rivales', 'Back': 'Volver', 'easy': 'fácil', 'hard': 'difícil',
+  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/{1} seated, send the link': '{0}/{1} sentados, mandá el link', 'Free for all': 'Todos contra todos', '{0} vs bots': '{0} vs bots', '{0} online': '{0} online', 'players': 'jugadores', 'rivals': 'rivales', 'Back': 'Volver', 'easy': 'fácil', 'hard': 'difícil', 'normal': 'normal', 'Other': 'Otros', 'Difficulty': 'Dificultad',
   '🐢 hurry up already': '🐢 dale que es para hoy', '😜 I\'m gonna beat you': '😜 te voy a ganar', '👉 poke': '👉 pinchar', '🤡 clown move': '🤡 jugada de payaso', '🔥 sick move': '🔥 tremenda',
   // game.js errors and log
   'keep a tile: you can\'t go out without a canasta': 'quedate con fichas: sin canasta no podés cerrar', 'you need a canasta to go out': 'necesitás una canasta para cerrar',
@@ -192,7 +192,7 @@ const fill = (k, a) => a.reduce((x, v, i) => x.replace('{' + i + '}', v), k);
 const t = (k, ...a) => fill((LANG === 'es' && ES[k]) || k, a);
 // ev is stale when an older client wrote only log
 const log = () => s.ev && fill(s.ev[0], s.ev.slice(1)) === s.log ? t(...s.ev) : s.log;
-const TEASES = ['🐢 hurry up already', '😜 I\'m gonna beat you', '👉 poke', '💋', '😴', '🤡 clown move', '🔥 sick move', '😂'].map(x => t(x)), POKE = 2;
+const TEASES = ['👉', '🐢', '🤡', '💩', '🔥', '😂', '✂️', '😜', '💋', '😴', '🤯', '🙈', '🐌', '🎉'], POKE = 0;
 const $ = id => document.getElementById(id);
 // Static HTML text
 document.documentElement.lang = LANG;
@@ -408,7 +408,7 @@ function renderChat() {
 // End of hand: the table's tiles bounce off the screen leaving trails, solitaire style
 function cascade(done) {
   const els = [...document.querySelectorAll('.meld .tile, #hand .tile')];
-  if (!els.length || document.body.classList.contains('xl') || matchMedia('(prefers-reduced-motion: reduce)').matches) return done();
+  if (!els.length || document.body.classList.contains('xl')) return done();
   const c = document.createElement('canvas'), g = c.getContext('2d'), dpr = devicePixelRatio || 1, W = innerWidth, H = innerHeight;
   c.width = W * dpr; c.height = H * dpr;
   c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:11';
@@ -580,9 +580,8 @@ function sendChat(text) {
 $('teases').append(...TEASES.map((x, i) => {
   const b = Object.assign(document.createElement('button'), {textContent: x});
   b.onclick = () => {
-    const e = [...x][0], shake = i === POKE;
-    tease(e, false); pokeAct.send(JSON.stringify({e, shake}));
-    if (!shake && x.length > 2) sendChat(x);
+    const shake = i === POKE;
+    tease(x, false); pokeAct.send(JSON.stringify({e: x, shake}));
   };
   return b;
 }));
@@ -625,30 +624,27 @@ $('lCopy').onclick = () => $('copy').onclick();
 $('lNew').onclick = () => location.hash = rand() + ':' + rand();
 setInterval(status, 3000);
 
-// Bot difficulty for local modes, kept per device
-function levelRow() {
-  const row = Object.assign(document.createElement('div'), {style: 'display:flex;gap:6px'});
+// Submenu: title + buttons [label, onclick]; level is per device, picked when starting a bot game
+const btn = (l, f) => Object.assign(document.createElement('button'), {textContent: l, onclick: f});
+const sub = (title, opts) => $('mbody').replaceChildren(Object.assign(document.createElement('b'), {textContent: title}),
+  ...opts.map(([l, f]) => btn(l, f)), btn(t('Back'), menu));
+function levelMenu(h) {
   const cur = localStorage.getItem('burako:level') || 'hard';
-  row.append(...Object.keys(LEVELS).map(l => Object.assign(document.createElement('button'), {textContent: t(l),
-    style: 'flex:1;padding:7px;font-size:13px' + (l === cur ? '' : ';opacity:.4'),
-    onclick: () => { localStorage.setItem('burako:level', l); menu(); }})));
-  return row;
+  sub(t('Difficulty'), Object.keys(LEVELS).map(l => [t(l) + (l === cur ? ' ✓' : ''), () => { localStorage.setItem('burako:level', l); location.hash = h; }]));
 }
 
-function ffaMenu() {
-  const k = rand() + ':' + rand();
-  const opts = [['{0} vs bots', 3, 'ffa3'], ['{0} vs bots', 4, 'ffa4'], ['{0} online', 3, k + ':f3'], ['{0} online', 4, k + ':f4'], ['Back']];
-  $('mbody').replaceChildren(Object.assign(document.createElement('b'), {textContent: t('Free for all')}), ...opts.map(([l, n, h]) =>
-    Object.assign(document.createElement('button'), {textContent: t(l, n && n + ' ' + t('players')), onclick: () => h ? location.hash = h : menu()})));
+function otherMenu() {
+  const k = () => rand() + ':' + rand();
+  sub(t('Other'), [['2 vs 2 with bots', () => levelMenu('2v2')], ['2 vs 2 online', () => location.hash = k() + ':4'],
+    [t('{0} vs bots', '3 ' + t('players')), () => levelMenu('ffa3')], [t('{0} vs bots', '4 ' + t('players')), () => levelMenu('ffa4')],
+    [t('{0} online', '3 ' + t('players')), () => location.hash = k() + ':f3'], [t('{0} online', '4 ' + t('players')), () => location.hash = k() + ':f4']]
+    .map(([l, f]) => [t(l), f]));
 }
 
 function menu() {
-  const opts = [['Online with link', rand() + ':' + rand()], ['Practice vs bot', 'solo'], ['2 vs 2 with bots', '2v2'], ['2 vs 2 online', rand() + ':' + rand() + ':4'], ['Free for all', 'ffa']];
-  $('mbody').replaceChildren(logo(), ...opts.map(([l, h]) => {
-    const b = Object.assign(document.createElement('button'), {textContent: t(l)});
-    b.onclick = () => h === 'ffa' ? ffaMenu() : location.hash = h;
-    return b;
-  }), levelRow(), Object.assign(document.createElement('a'), {href: P.repoUrl, target: '_blank', rel: 'noopener', textContent: 'github',
+  $('mbody').replaceChildren(logo(), btn(t('Online with link'), () => location.hash = rand() + ':' + rand()),
+    btn(t('Practice vs bot'), () => levelMenu('solo')), btn(t('Other'), otherMenu),
+    Object.assign(document.createElement('a'), {href: P.repoUrl, target: '_blank', rel: 'noopener', textContent: 'github',
     style: 'font-size:11px;color:#fff6;text-align:center;text-decoration:none'}));
   $('modal').className = 'on';
 }
