@@ -41,8 +41,9 @@
     transition:transform .15s,box-shadow .15s}
   .c0{color:#e8000b}.c1{color:#0050c8}.c2{color:#000}.c3{color:#f2a900;-webkit-text-stroke:1px #7a4a00}
   .c4{color:#e8000b;font-size:calc(var(--tw)*.62);padding-top:calc(var(--tw)*.22)}
-  .tile.c0::after{content:"";position:absolute;left:50%;bottom:calc(var(--tw)*.2);width:calc(var(--tw)*.13);height:calc(var(--tw)*.13);margin-left:calc(var(--tw)*-.065);border-radius:50%;background:#e8000b;opacity:.75} /* dot tells red from black */
-  .xl .tile.c0::after{display:none}
+  .tile:is(.c0,.c1,.c2,.c3)::after{position:absolute;left:0;right:0;bottom:calc(var(--tw)*.14);text-align:center;font-size:calc(var(--tw)*.3);opacity:.8} /* icon per color, not just hue */
+  .tile.c0::after{content:"\2665\FE0E"}.tile.c1::after{content:"\2663\FE0E"}.tile.c2::after{content:"\2660\FE0E"}.tile.c3::after{content:"\2666\FE0E"} /* card suits, text style so they take the tile color */
+  .xl .tile::after{display:none}
   #hand{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;padding:14px 8px 12px;border-radius:8px;background:linear-gradient(#262626,#0e0e0e);box-shadow:inset 0 -6px 0 #000,0 5px 0 #050505,0 8px 16px #000a}
   #hand .tile{cursor:pointer}
   #hand .tile.sel{transform:translateY(-10px);box-shadow:0 0 0 3px #ffd84a,0 8px 14px #000a}
@@ -135,11 +136,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-12.3';
-import * as G from './game.js?v=2026-11-12.3';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-12.3';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-12.4';
+import * as G from './game.js?v=2026-11-12.4';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-12.4';
 
-const VERSION = '2026-11-12.3';
+const VERSION = '2026-11-12.4';
 
 // Tunable parameters
 const P = {
