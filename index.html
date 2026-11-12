@@ -41,6 +41,7 @@
     transition:transform .15s,box-shadow .15s}
   .c0{color:#e8000b}.c1{color:#0050c8}.c2{color:#000}.c3{color:#f2a900;-webkit-text-stroke:1px #7a4a00}
   .c4{color:#e8000b;font-size:calc(var(--tw)*.62);padding-top:calc(var(--tw)*.22)}
+  .tile.c0{box-shadow:inset 0 0 0 2px #e8000b,inset 0 -2px 0 #d8caa4,0 3px 0 #b9a77c,0 4px 7px #0008} /* red ring tells red from black */
   #hand{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;padding:14px 8px 12px;border-radius:8px;background:linear-gradient(#262626,#0e0e0e);box-shadow:inset 0 -6px 0 #000,0 5px 0 #050505,0 8px 16px #000a}
   #hand .tile{cursor:pointer}
   #hand .tile.sel{transform:translateY(-10px);box-shadow:0 0 0 3px #ffd84a,0 8px 14px #000a}
@@ -133,11 +134,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-12.1';
-import * as G from './game.js?v=2026-11-12.1';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-12.1';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-12.2';
+import * as G from './game.js?v=2026-11-12.2';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-12.2';
 
-const VERSION = '2026-11-12.1';
+const VERSION = '2026-11-12.2';
 
 // Tunable parameters
 const P = {
@@ -151,7 +152,7 @@ const P = {
   toastMs: 2200,
   blipGain: 0.04,
   botMs: 700,
-  cascadeMs: 9000,      // end-of-hand bouncing tiles, tap to skip
+  cascadeMs: 9000,      // end-of-hand bouncing tiles, behind the score modal
   cascadeGravity: 0.45,
   cascadeBounce: 0.78,
   cascadeEvery: 7,      // frames between launches
@@ -411,7 +412,7 @@ function cascade(done) {
   if (!els.length || document.body.classList.contains('xl')) return done();
   const c = document.createElement('canvas'), g = c.getContext('2d'), dpr = devicePixelRatio || 1, W = innerWidth, H = innerHeight;
   c.width = W * dpr; c.height = H * dpr;
-  c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:11';
+  c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:9;pointer-events:none';
   g.scale(dpr, dpr);
   document.body.append(c);
   const todo = els.map(e => {
@@ -422,7 +423,6 @@ function cascade(done) {
   const live = [], t0 = performance.now();
   let f = 0, end = false;
   const finish = () => { if (end) return; end = true; c.remove(); done(); };
-  c.onclick = finish;
   function draw(o) {
     const r = o.w * .16;
     g.fillStyle = '#b9a77c'; g.beginPath(); g.roundRect(o.x, o.y + 2, o.w, o.h, r); g.fill();
@@ -432,6 +432,7 @@ function cascade(done) {
   }
   (function step() {
     if (end) return;
+    if (!$('modal').className) return finish(); // score closed
     if (f++ % P.cascadeEvery === 0 && todo.length) live.push(todo.pop());
     for (const o of live) {
       o.vy += P.cascadeGravity; o.x += o.vx; o.y += o.vy;
@@ -444,7 +445,7 @@ function cascade(done) {
   })();
 }
 
-function showScore() { cascade(scoreModal); }
+function showScore() { scoreModal(); cascade(() => {}); } // tiles bounce behind the score
 function scoreModal() {
   const rows = {juegos: 'melds', canastas: 'canastas', cierre: 'going out', mano: 'in hand', muerto: 'dead hand', total: 'total'};
   const L = s.last || s.scores.map(() => ({}));
