@@ -67,7 +67,7 @@
   .m{max-width:80%;padding:6px 10px;border-radius:12px;background:#333;word-break:break-word;align-self:flex-start}
   .m.me{align-self:flex-end;background:#2e7d55}
   #teases{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:6px 10px}
-  #teases button{all:unset;cursor:pointer;flex-shrink:0;padding:4px 8px;border-radius:14px;background:#fff1;font-size:22px}
+  #teases button{all:unset;cursor:pointer;flex-shrink:0;padding:7px 12px;border-radius:14px;background:#fff1;font-size:22px}
   #cf{display:flex;padding:8px;gap:6px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
   #cf input{flex:1;min-width:0;padding:11px;border-radius:10px;border:0;background:#000;color:#eee;font-size:16px}
   #cf button{border:0;border-radius:10px;padding:0 14px;background:#2e7d55;color:#fff;font-size:16px}
@@ -141,11 +141,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-13.1';
-import * as G from './game.js?v=2026-11-13.1';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-13.1';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-13.2';
+import * as G from './game.js?v=2026-11-13.2';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-13.2';
 
-const VERSION = '2026-11-13.1';
+const VERSION = '2026-11-13.2';
 
 // Tunable parameters
 const P = {
