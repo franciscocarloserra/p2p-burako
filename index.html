@@ -141,11 +141,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-12.6';
-import * as G from './game.js?v=2026-11-12.6';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-12.6';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-13.1';
+import * as G from './game.js?v=2026-11-13.1';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-13.1';
 
-const VERSION = '2026-11-12.6';
+const VERSION = '2026-11-13.1';
 
 // Tunable parameters
 const P = {
@@ -200,7 +200,7 @@ const fill = (k, a) => a.reduce((x, v, i) => x.replace('{' + i + '}', v), k);
 const t = (k, ...a) => fill((LANG === 'es' && ES[k]) || k, a);
 // ev is stale when an older client wrote only log
 const log = () => s.ev && fill(s.ev[0], s.ev.slice(1)) === s.log ? t(...s.ev) : s.log;
-const TEASES = ['👉', '🐢', '🤡', '💩', '🔥', '😂', '✂️', '😜', '💋', '😴', '🤯', '🙈', '🐌', '🎉'], POKE = 0;
+const TEASES = ['👉', '🐢', '🤡', '💩', '🔥', '😂', '✂️', '😜', '💋', '😴', '🤯', '🙈', '🐌', '🎉', '🤬', '💎', '💰', '🫴'], POKE = 0;
 const $ = id => document.getElementById(id);
 // Static HTML text
 document.documentElement.lang = LANG;
