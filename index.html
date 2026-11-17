@@ -142,11 +142,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-13.4';
-import * as G from './game.js?v=2026-11-13.4';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-13.4';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-17.1';
+import * as G from './game.js?v=2026-11-17.1';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-17.1';
 
-const VERSION = '2026-11-13.4';
+const VERSION = '2026-11-17.1';
 
 // Tunable parameters
 const P = {
@@ -240,7 +240,8 @@ const stAct = r.makeAction('st'), chatAct = r.makeAction('chat'), pokeAct = r.ma
 
 const seat = () => s ? s.players.findIndex(p => p.id === me) : -1;
 const save = () => { localStorage.setItem(KEY + ':state', JSON.stringify(s)); localStorage.setItem(KEY + ':chat', JSON.stringify(chat)); };
-const newer = (a, b) => !b || a.v > b.v || (a.v === b.v && a.id < b.id);
+// Same version from two peers (simultaneous seat claims or 'next'): every peer keeps the same one, so seats and turns don't diverge
+const newer = (a, b) => !b || a.v > b.v || (a.v === b.v && JSON.stringify(a) < JSON.stringify(b));
 function commit() { s.v++; save(); stAct.send(JSON.stringify(s)); render(); }
 
 function parse(raw) {
@@ -348,12 +349,13 @@ function render() {
   if (!s || p < 0) return;
   const mt = G.team(p, s), o = 1 - mt, n = s.n ?? 2, back = () => Object.assign(document.createElement('div'), {className: 'back'});
   document.body.classList.toggle('n4', n === 4);
-  const opps = [...Array(G.sides(s)).keys()].filter(T => T !== mt), dead = T => s.muerto[T] ? t(' · with dead hand') : '';
+  const opps = [...Array(G.sides(s)).keys()].map(i => (mt + i) % G.sides(s)).filter(T => T !== mt), dead = T => s.muerto[T] ? t(' · with dead hand') : '';
   $('oppName').textContent = s.ffa ? t('rivals') : s.players.length > 1 ? teamName(o) + (s.muerto[o] ? t(' · with dead hand') : '') : t('waiting for opponent...');
   $('myName').textContent = teamName(mt) + (s.muerto[mt] ? t(' · with dead hand') : '');
   $('oppScore').textContent = s.players.length > 1 && !s.ffa ? t('{0} pts', s.scores[o]) : '';
   $('myScore').textContent = t('{0} pts', s.scores[mt]);
-  $('oppHand').replaceChildren(...[...Array(n).keys()].filter(q => q !== p && s.players[q]).map(q => {
+  // Rivals in turn order, starting with whoever plays after me
+  $('oppHand').replaceChildren(...[...Array(n).keys()].map(i => (p + i) % n).filter(q => q !== p && s.players[q]).map(q => {
     const w = Object.assign(document.createElement('div'), {className: 'rack' + (s.turn === q ? ' turn' : '')});
     const b = Object.assign(document.createElement('div'), {className: 'backs'});
     b.append(...(s.hands[q] ?? []).map(back));
