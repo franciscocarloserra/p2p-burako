@@ -141,11 +141,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-13.2';
-import * as G from './game.js?v=2026-11-13.2';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-13.2';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-13.3';
+import * as G from './game.js?v=2026-11-13.3';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-13.3';
 
-const VERSION = '2026-11-13.2';
+const VERSION = '2026-11-13.3';
 
 // Tunable parameters
 const P = {
@@ -599,7 +599,7 @@ $('teases').append(...TEASES.map((x, i) => {
   return b;
 }));
 $('cf').onsubmit = e => { e.preventDefault(); const t = $('ct').value.trim(); if (t) sendChat(t); $('ct').value = ''; };
-$('chatBtn').onclick = () => { chatOpen = !chatOpen; $('chat').classList.toggle('open', chatOpen); if (chatOpen) unread = 0, $('ct').focus({preventScroll: true}); renderChat(); };
+$('chatBtn').onclick = () => { chatOpen = !chatOpen; $('chat').classList.toggle('open', chatOpen); if (chatOpen) unread = 0; renderChat(); };
 document.querySelector('main').onclick = () => { if (chatOpen) $('chatBtn').onclick(); };
 
 // --- table actions
