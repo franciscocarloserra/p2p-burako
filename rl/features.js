@@ -1,5 +1,5 @@
 // Observation and candidate-action encoding for the RL policy. Shared by training (env.js) and the in-browser bot.
-import {R, validate, isWild, isCanasta, team, color, num, value} from '../game.js?v=2026-11-18.1';
+import {R, validate, isWild, isCanasta, team, color, num, value} from '../game.js?v=2026-11-19.1';
 
 export const NT = 53;            // tile types: 4 colors x 13 + comodín (the two decks collapse)
 export const MAXM = 10;          // melds summarized per side
