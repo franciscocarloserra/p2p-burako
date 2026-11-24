@@ -142,12 +142,11 @@
 <div id="modal"><div id="mbody"></div></div>
 <script type="module">
 window.onerror = window.onunhandledrejection = e => toast('error: ' + (e.reason || e.message || e));
-import {joinRoom} from './trystero-nostr.mjs?v=2026-11-19.1';
-import * as G from './game.js?v=2026-11-19.1';
-import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-19.1';
-import * as RL from './rl/rlbot.js?v=2026-11-19.1';
+import {joinRoom} from './trystero-nostr.mjs?v=2026-11-20.1';
+import * as G from './game.js?v=2026-11-20.1';
+import {botStep, B as BOT, LEVELS} from './bot.js?v=2026-11-20.1';
 
-const VERSION = '2026-11-19.1';
+const VERSION = '2026-11-20.1';
 
 // Tunable parameters
 const P = {
@@ -186,7 +185,7 @@ const ES = {
   'New hand': 'Nueva mano', 'View table': 'Ver mesa', 'Where does the wild go?': '¿Dónde va el comodín?', 'Who are you?': '¿Quién sos?', 'I\'m {0}': 'Soy {0}',
   'Your opponent isn\'t showing up': 'Tu rival no aparece', 'Keep waiting': 'Seguir esperando', 'your name': 'tu nombre', 'Play': 'Jugar',
   'Partner': 'Compa', 'Opponent 1': 'Rival 1', 'Opponent 2': 'Rival 2', 'link copied': 'link copiado',
-  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/{1} seated, send the link': '{0}/{1} sentados, mandá el link', 'Free for all': 'Todos contra todos', '{0} vs bots': '{0} vs bots', '{0} online': '{0} online', 'players': 'jugadores', 'rivals': 'rivales', 'Back': 'Volver', 'easy': 'fácil', 'hard': 'difícil', 'ultrahard': 'ultra difícil', 'normal': 'normal', 'Other': 'Otros', 'Difficulty': 'Dificultad',
+  'Online with link': 'Online con link', 'Practice vs bot': 'Práctica vs bot', '2 vs 2 with bots': '2 vs 2 con bots', '2 vs 2 online': '2 vs 2 online', '{0}/{1} seated, send the link': '{0}/{1} sentados, mandá el link', 'Free for all': 'Todos contra todos', '{0} vs bots': '{0} vs bots', '{0} online': '{0} online', 'players': 'jugadores', 'rivals': 'rivales', 'Back': 'Volver', 'easy': 'fácil', 'hard': 'difícil', 'Download games': 'Descargar partidas', 'no games logged': 'no hay partidas guardadas', 'normal': 'normal', 'Other': 'Otros', 'Difficulty': 'Dificultad',
   '🐢 hurry up already': '🐢 dale que es para hoy', '😜 I\'m gonna beat you': '😜 te voy a ganar', '👉 poke': '👉 pinchar', '🤡 clown move': '🤡 jugada de payaso', '🔥 sick move': '🔥 tremenda',
   // game.js errors and log
   'keep a tile: you can\'t go out without a canasta': 'quedate con fichas: sin canasta no podés cerrar', 'you need a canasta to go out': 'necesitás una canasta para cerrar',
@@ -243,7 +242,27 @@ const seat = () => s ? s.players.findIndex(p => p.id === me) : -1;
 const save = () => { localStorage.setItem(KEY + ':state', JSON.stringify(s)); localStorage.setItem(KEY + ':chat', JSON.stringify(chat)); };
 // Same version from two peers (simultaneous seat claims or 'next'): every peer keeps the same one, so seats and turns don't diverge
 const newer = (a, b) => !b || a.v > b.v || (a.v === b.v && JSON.stringify(a) < JSON.stringify(b));
-function commit() { s.v++; save(); stAct.send(JSON.stringify(s)); render(); }
+function commit(a) { s.v++; save(); rec(a); stAct.send(JSON.stringify(s)); render(); }
+
+// Game log for later analysis: every state this device sees (own moves with their action), kept in IndexedDB on this device only
+const logDb = new Promise(ok => {
+  const q = indexedDB.open('burako-log', 1);
+  q.onupgradeneeded = () => q.result.createObjectStore('rows', {autoIncrement: true});
+  q.onsuccess = () => ok(q.result); q.onerror = () => ok(null);
+});
+function rec(a = null) {
+  const row = {t: Date.now(), ver: VERSION, mode: MODE, level: localStorage.getItem('burako:level') || 'hard', seat: seat(), a, s: JSON.parse(JSON.stringify(s))};
+  logDb.then(db => db?.transaction('rows', 'readwrite').objectStore('rows').add(row));
+}
+async function downloadLog() {
+  const db = await logDb;
+  if (!db) return toast(t('no games logged'));
+  const rows = await new Promise(ok => { const q = db.transaction('rows').objectStore('rows').getAll(); q.onsuccess = () => ok(q.result); q.onerror = () => ok([]); });
+  if (!rows.length) return toast(t('no games logged'));
+  const url = URL.createObjectURL(new Blob([rows.map(r => JSON.stringify(r)).join('\n') + '\n'], {type: 'application/x-ndjson'}));
+  Object.assign(document.createElement('a'), {href: url, download: 'burako-log-' + new Date().toISOString().slice(0, 10) + '.jsonl'}).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function parse(raw) {
   if (typeof raw !== 'string' || raw.length > P.maxPayloadBytes) return null;
@@ -262,7 +281,7 @@ stAct.onMessage = raw => {
   const o = parse(raw);
   if (!o || o.schema !== 1 || !Array.isArray(o.players) || !newer(o, s)) return;
   const myTurnBefore = isMyTurn(), wasOver = s?.phase === 'over';
-  s = G.migrate(o); save(); claim(); render();
+  s = G.migrate(o); save(); rec(); claim(); render();
   if (!myTurnBefore && isMyTurn()) blip(660);
   if (!wasOver && s.phase === 'over') showScore();
   if (seat() < 0 && s.players.length >= s.n && !$('modal').className) askSeat();
@@ -295,7 +314,7 @@ const isMyTurn = () => s && seat() >= 0 && s.turn === seat() && (s.phase === 'dr
 function play(a) {
   const err = G.act(s, seat(), a);
   if (err) { toast(t(err)); return false; }
-  sel.clear(); commit();
+  sel.clear(); commit(a);
   if (s.phase === 'over') showScore();
   return true;
 }
@@ -394,20 +413,18 @@ function render() {
 const teamName = T => s.players.filter((_, q) => G.team(q, s) === T).map(x => x.name).join(' + ');
 
 // Local modes: bots play their turns with a small delay so moves are visible
-let botT = null, rlFailed = false;
+let botT = null;
 function botLoop() {
   const q = s?.turn;
   if (ONLINE || botT || !s.players[q]?.bot || (s.phase !== 'draw' && s.phase !== 'play')) return;
   const level = localStorage.getItem('burako:level') || 'hard';
-  // ultrahard = RL policy, trained for 1 vs 1 only; weights load on first use, rule bot if they fail
-  const rl = level === 'ultrahard' && s.players.length === 2 && !rlFailed;
-  if (rl && !RL.ready()) { RL.load().catch(e => { rlFailed = true; console.error(e); }).finally(botLoop); return; }
   botT = setTimeout(() => {
     botT = null;
     // Difficulty only weakens rival bots; a bot partner always plays its best
     BOT.mistake = G.team(q, s) === G.team(seat(), s) ? 0 : LEVELS[level] ?? 0;
-    if (G.act(s, q, rl ? RL.step(s, q) : botStep(s, q))) G.act(s, q, {type: 'discard', id: s.hands[q].at(-1)});
-    commit();
+    const a = botStep(s, q);
+    if (G.act(s, q, a)) G.act(s, q, {type: 'discard', id: s.hands[q].at(-1)});
+    commit(a);
     if (s.phase === 'over') showScore();
   }, P.botMs);
 }
@@ -568,7 +585,7 @@ function start() {
     const bots = MODE === 'solo' ? ['Bot'] : FFA ? ['Bot 1', 'Bot 2', 'Bot 3'].slice(0, +MODE.at(-1) - 1) : ['Opponent 1', 'Partner', 'Opponent 2'].map(x => t(x));
     s = G.newState(rand(), {id: me, name: myName}, bots.length + 1, FFA);
     bots.forEach((b, i) => s.players.push({id: 'bot' + i, name: b, bot: true}));
-    G.deal(s); save();
+    G.deal(s); save(); rec();
   }
   if (!s) { s = G.newState(rand(), {id: me, name: myName}, SEATS, FFA); save(); stAct.send(JSON.stringify(s)); }
   claim(); render(); renderChat();
@@ -651,14 +668,14 @@ const sub = (title, opts) => $('mbody').replaceChildren(Object.assign(document.c
   ...opts.map(([l, f]) => btn(l, f)), btn(t('Back'), menu));
 function levelMenu(h) {
   const cur = localStorage.getItem('burako:level') || 'hard';
-  sub(t('Difficulty'), [...Object.keys(LEVELS), ...(h === 'solo' ? ['ultrahard'] : [])].map(l => [t(l) + (l === cur ? ' ✓' : ''), () => { localStorage.setItem('burako:level', l); location.hash = h; }]));
+  sub(t('Difficulty'), Object.keys(LEVELS).map(l => [t(l) + (l === cur ? ' ✓' : ''), () => { localStorage.setItem('burako:level', l); location.hash = h; }]));
 }
 
 function otherMenu() {
   const k = () => rand() + ':' + rand();
   sub(t('Other'), [['2 vs 2 with bots', () => levelMenu('2v2')], ['2 vs 2 online', () => location.hash = k() + ':4'],
     [t('{0} vs bots', '3 ' + t('players')), () => levelMenu('ffa3')], [t('{0} vs bots', '4 ' + t('players')), () => levelMenu('ffa4')],
-    [t('{0} online', '3 ' + t('players')), () => location.hash = k() + ':f3'], [t('{0} online', '4 ' + t('players')), () => location.hash = k() + ':f4']]
+    [t('{0} online', '3 ' + t('players')), () => location.hash = k() + ':f3'], [t('{0} online', '4 ' + t('players')), () => location.hash = k() + ':f4'], ['Download games', downloadLog]]
     .map(([l, f]) => [t(l), f]));
 }
 

@@ -2,5 +2,4 @@ apk/
 todelete/
 rl/*
 !rl/rlbot.js
-!rl/rlbot.bin
 !rl/features.js
